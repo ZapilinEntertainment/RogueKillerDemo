@@ -6,9 +6,11 @@ namespace RogueKiller
 {
     public sealed class GameManager : MonoBehaviour
     {
+        [SerializeField] private GameSettings _gameSettings;
         public static GameManager Current { get; private set; }
         public PlayerController PlayerController { get; private set; }
         public CameraController CameraController { get; private set; }
+        private Enemy _enemy;
 
         private void Awake()
         {
@@ -28,9 +30,13 @@ namespace RogueKiller
                 return;
             }
             CameraController.Prepare(PlayerController);
-            PlayerController.Prepare(CameraController);            
+            PlayerController.Prepare(CameraController, _gameSettings);
             //
-
+            _enemy = FindObjectOfType<Enemy>();
+            if (_enemy != null)
+            {
+                PlayerController.TrackTarget(_enemy);
+            }
         }
     }
 }
