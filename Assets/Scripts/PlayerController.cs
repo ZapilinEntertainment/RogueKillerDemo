@@ -7,7 +7,7 @@ namespace RogueKiller
     public sealed class PlayerController : MonoBehaviour
     {
         [SerializeField] private Animator _animator;
-        [SerializeField] private Transform  _trackingArrow;
+        [SerializeField] private Transform _trackingArrow;
         [SerializeField] private GameObject _gun, _sword, _executionLabel;
 
         public static PlayerController Current { get; private set; }
@@ -19,8 +19,10 @@ namespace RogueKiller
         private Enemy _trackingEnemy;
         private GameSettings _gameSettings;
         private ExecutionLabelUI _executionLabelUI;
+        private CinematicPrepareData _cinematicData;
         private bool _trackTarget = false, _drawMarker = false, _executionCinematicInProgress = false;
-        private const float MAX_TORSO_ROTATION_ANGLE = 90f;
+        private float _cinematicProgress = 0f;
+        private const float MAX_TORSO_ROTATION_ANGLE = 90f, _cinematicTargetingTime = 0.5f;
         public void Prepare(CameraController i_cc, GameSettings i_gs)
         {
             Current = this;
@@ -28,7 +30,7 @@ namespace RogueKiller
             _gameSettings = i_gs;
             _cameraTransform = _cameraController.Camera.transform;
             _legsMoveVector = transform.forward;
-            _trackingArrow.gameObject.SetActive(false);            
+            _trackingArrow.gameObject.SetActive(false);
             _gun.SetActive(true);
             _sword.SetActive(true);
             //
@@ -37,13 +39,14 @@ namespace RogueKiller
         }
         private void Update()
         {
+            float t = Time.deltaTime;
             if (!_executionCinematicInProgress)
             {
                 var _moveVector = new Vector3(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"), 0f);
                 if (_moveVector != Vector3.zero)
                 {
                     _moveVector = Vector3.ProjectOnPlane(_cameraTransform.TransformDirection(_moveVector), transform.up).normalized;
-                    transform.Translate(_moveVector * Time.deltaTime * _gameSettings.PlayerSpeed, Space.World);
+                    transform.Translate(_moveVector * t * _gameSettings.PlayerSpeed, Space.World);
                     _legsMoveVector = _moveVector;
                 }
 
@@ -55,7 +58,7 @@ namespace RogueKiller
 
                 }
                 //
-                Vector3 legsVector = transform.InverseTransformDirection(_legsMoveVector);
+                Vector3 legsVector = transform.InverseTransformDirection(_legsMoveVector) * _moveVector.magnitude;
                 _animator.SetFloat("lookDir.x", legsVector.x);
                 _animator.SetFloat("lookDir.y", legsVector.z);
                 //
@@ -80,18 +83,19 @@ namespace RogueKiller
                     }
                     else
                     {
-                        ExecutionAvailable = Vector3.Distance(enemyPos, playerPos) <= _gameSettings.ExecutionDistance;
+                        ExecutionAvailable = Vector3.Distance(enemyPos, playerPos) <= _gameSettings.ExecutionAvailableDistance;
                         if (ExecutionAvailable && Input.GetKeyDown(KeyCode.Space))
                         {
                             Execution();
-                        } 
+                        }
                     }
                 }
                 //
             }
             else
-            { // executing
-
+            {
+                _cinematicProgress = Mathf.MoveTowards(_cinematicProgress, 1f, t / _cinematicTargetingTime);
+                _cinematicData.SetPosition(transform, _cinematicProgress);
             }
         }
 
@@ -100,18 +104,25 @@ namespace RogueKiller
             if (!_executionCinematicInProgress)
             {
                 _executionCinematicInProgress = true;
+                ExecutionAvailable = false;
                 _gun.SetActive(false);
                 _sword.SetActive(true);
                 _animator.Play("Execution");
+
+                _cinematicData = new CinematicPrepareData(transform, _trackingEnemy.transform, _gameSettings.ExecutionCinematicDistance);
+                _cinematicProgress = 0f;
             }
         }
         public void StopExecution()
         {
             if (_executionCinematicInProgress)
             {
+                _trackingEnemy.Kill(transform.position);
                 _executionCinematicInProgress = false;
                 _gun.SetActive(true);
                 _sword.SetActive(false);
+                _trackTarget = false;
+                _trackingEnemy = null;
             }
         }
 
@@ -121,6 +132,27 @@ namespace RogueKiller
             _trackTarget = true;
             _drawMarker = false;
             _executionLabelUI.Prepare(this, _trackingEnemy.transform, _cameraController.Camera);
+        }
+
+        private struct CinematicPrepareData {
+            private Vector3 _startPos, _endPos;
+            private Quaternion _startRot, _endRot;
+            public CinematicPrepareData(Transform player, Transform enemy, float x)
+            {
+                _startPos = player.position;
+                _startRot = player.rotation;
+                Vector3 enemypos = enemy.position,
+                 d = (enemypos - _startPos).normalized;
+                _endPos = enemypos - d * x;
+                _endRot = Quaternion.LookRotation(d, player.up);
+            }
+
+            public void SetPosition(Transform t, float lerpval)
+            {
+                float x = Mathf.SmoothStep(0f, 1f, lerpval);
+                t.position = Vector3.Lerp(_startPos, _endPos, x);
+                t.rotation = Quaternion.Lerp(_startRot, _endRot, x);
+            }
         }
 
     }

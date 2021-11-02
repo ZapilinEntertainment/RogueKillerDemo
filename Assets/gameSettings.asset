@@ -14,4 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _playerSpeed: 10
   _enemyRespawnTimer: 5
-  _executionDistance: 3
+  _executionAvailableDistance: 5
+  _executionCinematicDistance: 1

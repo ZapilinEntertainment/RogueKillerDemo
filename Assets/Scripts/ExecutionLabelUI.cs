@@ -18,7 +18,7 @@ namespace RogueKiller
             _playerController =  i_pc;
             _enemyTransform = i_enemyTransform;
             _cam = i_cam;
-            sz = Screen.height / 10f;
+            sz = Screen.height / 15f;
             GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, sz);
             
             _shown = _playerController.ExecutionAvailable;
