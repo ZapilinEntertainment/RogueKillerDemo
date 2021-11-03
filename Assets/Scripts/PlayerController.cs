@@ -14,7 +14,7 @@ namespace RogueKiller
         public bool ExecutionAvailable { get; private set; }
 
         private Transform _cameraTransform;
-        private Vector3 _legsMoveVector;
+        private Vector3 _legsMoveVector, _legsVectorCurrent, _legsVectorTarget;
         private CameraController _cameraController;
         private Enemy _trackingEnemy;
         private GameSettings _gameSettings;
@@ -22,7 +22,7 @@ namespace RogueKiller
         private CinematicPrepareData _cinematicData;
         private bool _trackTarget = false, _drawMarker = false, _executionCinematicInProgress = false;
         private float _cinematicProgress = 0f;
-        private const float MAX_TORSO_ROTATION_ANGLE = 90f, _cinematicTargetingTime = 0.5f;
+        private const float MAX_TORSO_ROTATION_ANGLE = 90f, _cinematicTargetingTime = 0.5f, _animationChangeSpeed = 10f;
         public void Prepare(CameraController i_cc, GameSettings i_gs)
         {
             Current = this;
@@ -33,6 +33,9 @@ namespace RogueKiller
             _trackingArrow.gameObject.SetActive(false);
             _gun.SetActive(true);
             _sword.SetActive(true);
+            _legsVectorCurrent = Vector3.zero;
+            _legsVectorTarget = _legsVectorCurrent;
+            ChangeLegsAnimation(_legsVectorCurrent);
             //
             _executionLabelUI = _executionLabel.AddComponent<ExecutionLabelUI>();
             _executionLabel.SetActive(false);
@@ -58,9 +61,12 @@ namespace RogueKiller
 
                 }
                 //
-                Vector3 legsVector = transform.InverseTransformDirection(_legsMoveVector) * _moveVector.magnitude;
-                _animator.SetFloat("lookDir.x", legsVector.x);
-                _animator.SetFloat("lookDir.y", legsVector.z);
+                _legsVectorTarget = transform.InverseTransformDirection(_legsMoveVector) * _moveVector.magnitude;
+                if (_legsVectorCurrent != _legsVectorTarget)
+                {
+                    _legsVectorCurrent = Vector3.MoveTowards(_legsVectorCurrent, _legsVectorTarget, _animationChangeSpeed * t);
+                    ChangeLegsAnimation(_legsVectorCurrent);
+                }
                 //
 
                 ExecutionAvailable = false;
@@ -119,11 +125,18 @@ namespace RogueKiller
             {
                 _trackingEnemy.Kill(transform.position);
                 _executionCinematicInProgress = false;
+                _legsVectorCurrent = _legsVectorTarget = Vector3.zero;
+                ChangeLegsAnimation(_legsVectorCurrent);
                 _gun.SetActive(true);
                 _sword.SetActive(false);
                 _trackTarget = false;
                 _trackingEnemy = null;
             }
+        }
+        private void ChangeLegsAnimation (Vector3 v)
+        {
+            _animator.SetFloat("lookDir.x", v.x);
+            _animator.SetFloat("lookDir.y", v.z);
         }
 
         public void TrackTarget(Enemy e)
